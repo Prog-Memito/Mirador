@@ -33,7 +33,7 @@ def autenticar():
 
 class Depto(db.Model):
     iddepto= db.Column(db.Integer, primary_key=True)
-    pisos= db.Column(db.Integer)
+    pisos= db.Column(db.Integer, nullable=False)
 
 class Owner(db.Model):
     idowner= db.Column(db.Integer, primary_key=True)
@@ -43,6 +43,16 @@ class Owner(db.Model):
 
     # RELACIONA CON EL DEPARTAMENTO
     depto= db.relationship('Depto', backref='owners', lazy=True)
+
+class Tenant(db.Model):
+    idtenant= db.Column(db.Integer, primary_key=True)
+    t_nombre= db.Column(db.String(300), nullable=False)
+    t_apellido= db.Column(db.String(300), nullable=False)
+    iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
+    
+
+    # RELACIONA CON EL DEPARTAMENTO
+    depto= db.relationship('Depto', backref='tenants', lazy=True)
 
 with app.app_context():
     db.create_all()
@@ -164,6 +174,81 @@ def eliminar_owner(id):
     db.session.commit()
     return jsonify({'mensaje': 'ERAI'}),401
 
+
+# SISTEMA CRUD ARRIENDATARIO
+
+## CREACION DE LOS ARRIENDATARIOS
+
+@app.route('/api/tenant', methods=['POST'])
+@requiere_autenticacion
+def crear_tenant():
+    datos = request.get_json()
+    nuevo_tenant = Tenant(
+        t_nombre = str(datos['t_nombre']),
+        t_apellido = str(datos['t_apellido']),
+        iddepto = int(datos['iddepto'])
+    )
+
+    db.session.add(nuevo_tenant)
+    db.session.commit()
+    return jsonify({'mensaje': 'Arrendatario creado', 'id':nuevo_tenant.idtenant})
+
+## LECTURA DE LOS ARRIENDATARIOS
+
+@app.route('/api/tenant', methods=['GET'])
+@requiere_autenticacion
+def obtener_tenants():
+    tenants= Tenant.query.all()
+
+    resultado= [
+        {'id':t.idtenant, 'nombre':t.t_nombre, 'apellido':t.t_apellido, 'iddepto':t.iddepto}
+        for t in tenants
+    ]
+    return jsonify(resultado)
+
+# LECTURA DE UN SOLO ARRIENDATARIO
+
+@app.route('/api/tenant/<int:id>', methods=['GET'])
+@requiere_autenticacion
+def obtener_tenant(id):
+    tenant = Tenant.query.get(id)
+    if not tenant:
+        return jsonify({'mensaje': 'Arriendatario no encontrado'}),404
+    return jsonify({
+        'id': tenant.idtenant,
+        'nombre': tenant.t_nombre,
+        'apellido': tenant.t_apellido,
+        'iddepto' : tenant.iddepto
+    })
+
+## ACTUALIZA LOS ARRIENDATARIOS
+
+@app.route('/api/tenant/<int:id>', methods=['PUT'])
+@requiere_autenticacion
+def actualizar_tenant(id):
+    datos = request.get_json()
+    tenant = Tenant.query.get(id)
+    if not tenant:
+        return jsonify({'mensaje': 'Arriendatario no encontrado'}),404
+    
+    tenant.t_nombre = datos.get('nombre', tenant.t_nombre)
+    tenant.t_apellido = datos.get('apellido', tenant.t_apellido)
+    tenant.iddepto = datos.get('iddepto', tenant.iddepto)
+
+    db.session.commit()
+    return jsonify({'mensaje': 'Arriendatario modificado', 'id': tenant.idtenant})
+
+## ELIMINA EL ARRIENDATARIO
+
+@app.route('/api/tenant/<int:id>', methods=['DELETE'])
+@requiere_autenticacion
+def eliminar_tenant(id):
+    tenant = Tenant.query.get(id)
+    if not tenant:
+        return jsonify({'mensaje': 'Arriendatario no encontrado'}),404
+    db.session.delete(tenant)
+    db.session.commit()
+    return jsonify({'mensaje': 'ERAI'}),401
 
 ## PERMITE EJECUTAR LA API
 
