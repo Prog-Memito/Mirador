@@ -1,0 +1,4 @@
+# Ignora las carpetas especificas
+
+__pycache__/
+instance/
