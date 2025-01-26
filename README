@@ -1,0 +1,41 @@
+POSIBLE IP 
+
+http://127.0.0.1:5000
+
+PARA CREAR DEPARTAMENTOS
+
+api/depto [POST, GET, PUT, DELETE]
+
+{
+    "pisos":
+}
+
+PARA CREAR PROPIETARIOS
+
+api/owner [POST, GET, PUT, DELETE]
+
+{
+    "o_nombre":"",
+    "o_apellido":"",
+    "iddepto":
+}
+
+PARA CREAR ARRENDATARIOS
+
+api/tenant [POST, GET, PUT, DELETE]
+
+{
+    "t_nombre":"",
+    "t_apellido":"",
+    "iddepto":
+}
+
+PARA CREAR EL PERSONAL
+
+api/staff [POST, GET, PUT, DELETE]
+
+{
+    "s_nombre":"",
+    "s_apellido":"",
+    "funcion":""
+}
