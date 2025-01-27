@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import validates
 from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -64,8 +65,8 @@ class Staff(db.Model):
 class Gastos_Comunes(db.Model):
     idgc= db.Column(db.Integer, primary_key=True)
     iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
-    ano= db.Column(db.Integer, nullable=False)
-    mes= db.Column(db.Integer, nullable=False)
+    anio= db.Column(db.Integer)
+    mes= db.Column(db.Integer)
     fechap= db.Column(db.Integer, nullable=False)
     valor= db.Column(db.Integer, nullable=False)
     pagado= db.Column(db.String(2), nullable=False)
@@ -405,7 +406,7 @@ def obtener_gasto():
     gastos= GastoComun.query.all()
     return jsonify([gasto.to_dict() for gasto in gastos]), 200
 
-## CURD PARA OBTENER LOS GASTOS POR ID
+## CRUD PARA OBTENER LOS GASTOS POR ID
 
 @app.route('/api/gastos/<int:id>', methods=['GET'])
 @requiere_autenticacion
@@ -414,6 +415,8 @@ def obtener_gasto(id):
     if not gasto:
         return jsonify({'error': 'Gasto común no encontrado'}), 404
     return jsonify(gasto.to_dict()), 200
+
+## CRUD PARA ACTUALIZAR EL GASTOS POR ID
 
 @app.route('/api/gastos/<int:id>', methods=['PUT'])
 @requiere_autenticacion
@@ -429,6 +432,8 @@ def actualizar_gasto(id):
     db.session.commit()
     return jsonify({'message': 'Gasto común actualizado', 'gasto': gasto.to_dict()}), 200
 
+## CRUD PARA ELIMINAR EL GASTO
+
 @app.route('/api/gastos/<int:id>', methods=['DELETE'])
 @requiere_autenticacion
 def eliminar_gasto(id):
@@ -439,6 +444,10 @@ def eliminar_gasto(id):
     db.session.delete(gasto)
     db.session.commit()
     return jsonify({'message': 'Gasto común eliminado exitosamente'}), 200
+
+## FOR POR CADA DEPARTAMENTO
+
+
 
 ## PERMITE EJECUTAR LA API
 
