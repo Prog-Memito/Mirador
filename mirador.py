@@ -67,7 +67,7 @@ class Gastos_Comunes(db.Model):
     iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
     anio= db.Column(db.Integer)
     mes= db.Column(db.Integer)
-    fechap= db.Column(db.Integer, nullable=False)
+    fechap= db.Column(db.String(10), nullable=False)
     valor= db.Column(db.Integer, nullable=False)
     pagado= db.Column(db.String(2), nullable=False)
 
@@ -357,97 +357,55 @@ def eliminar_staff(id):
 
 #####################################################################################
 
-## CREA LA CLASE DE GASTO COMUN
+## GENERA EL GASTO COMUN
 
-class GastoComun(db.Model):
-    gid= db.Column(db.Integer, primary_key=True)
-    anio= db.Column(db.Integer, nullable=False)
-    mes= db.Column(db.Integer, nullable=False)
+def generar_gasto_comun(anio, mes):
+    # Validar que el mes sea entre 1 y 12
+    if mes < 1 or mes > 12:
+        return jsonify({"mensaje": "El mes debe ser un número entre 1 y 12."}), 400
 
-    @validates('anio')
-    def validate_anio(self, key, value):
-        # VERIFICA QUE EL ANO TENGA EXACTAMENTE 4 DIGITOS 
-        if len(str(value)) != 4:
-            raise ValueError("El año debe tener exactamente 4 dígitos")
-        return value
-    
-    @validates('mes')
-    def validate_mes(self, key, value):
-        # VERIFICA QUE EL MES TENGA ENTRE 1 Y 2 DIGITOS Y ESTE EN RANGO ENTRE 1 Y 12
-        if not (1 <= value <=12):
-            raise ValueError("El mes debe estar entre 1 y 12")
-        return value
-
-## CRUD PARA CREAR LOS GASTOS
-
-@app.route('/api/gastos', methods=['POST'])
-@requiere_autenticacion
-def crear_gasto():
-    data= request.json
-    anio= data.get('anio')
-    mes= data.get('mes')
-
-    # VERIFICA SI YA HAY UN GASTO COMUN PARA ESAS FECHAS
-    gasto_existente= GastoComun.query.filter_by(anio=anio, mes=mes).first()
+    # Verificar si ya existe un gasto común para el año y mes
+    gasto_existente = Gastos_Comunes.query.filter_by(anio=anio, mes=mes).first()
     if gasto_existente:
-        return jsonify({'error': 'Ya existe un gasto común para ese año y mes'}), 400
+        return jsonify({"mensaje": "Ya existe un gasto común para este año y mes."}), 400
+
+    # Obtener todos los departamentos
+    departamentos = Depto.query.all()
+
+    if not departamentos:
+        return jsonify({"mensaje": "No hay departamentos disponibles."}), 400
     
-    nuevo_gasto= GastoComun(anio=anio, mes=mes)
-    db.session.add(nuevo_gasto)
+    fecha_actual= datetime.now().strftime('%d/%m/%Y')
+
+    # Crear un gasto común para cada departamento
+    for depto in departamentos:
+        nuevo_gasto = Gastos_Comunes(
+            iddepto= depto.iddepto,
+            anio= anio,
+            mes= mes,
+            fechap= fecha_actual,
+            valor= 50000,
+            pagado= "NO"
+        )
+        db.session.add(nuevo_gasto)
+
     db.session.commit()
 
-    return jsonify({'message': 'Gasto común creado exitosamente', 'gasto': nuevo_gasto.to_dict()}), 201
+    return jsonify({"mensaje": "Gastos comunes generados correctamente."}), 201
 
-## CRUD PARA OBTENER LOS GASTOS
+# Ruta para generar el gasto común
+@app.route('/api/generar', methods=['POST'])
+def generar():
+    data = request.get_json()
 
-@app.route('/api/gastos', methods=['GET'])
-@requiere_autenticacion
-def obtener_gasto():
-    gastos= GastoComun.query.all()
-    return jsonify([gasto.to_dict() for gasto in gastos]), 200
+    anio = data.get('anio')
+    mes = data.get('mes')
 
-## CRUD PARA OBTENER LOS GASTOS POR ID
+    # Validar que el año y mes sean proporcionados
+    if not anio or not mes:
+        return jsonify({"mensaje": "El año y mes son requeridos."}), 400
 
-@app.route('/api/gastos/<int:id>', methods=['GET'])
-@requiere_autenticacion
-def obtener_gasto(id):
-    gasto= GastoComun.query.get(id)
-    if not gasto:
-        return jsonify({'error': 'Gasto común no encontrado'}), 404
-    return jsonify(gasto.to_dict()), 200
-
-## CRUD PARA ACTUALIZAR EL GASTOS POR ID
-
-@app.route('/api/gastos/<int:id>', methods=['PUT'])
-@requiere_autenticacion
-def actualizar_gasto(id):
-    gasto= GastoComun.query.get(id)
-    if not gasto:
-        return jsonify({'error': 'Gasto común no encontrado'}), 404
-    
-    data= request.json
-    gasto.anio= data.get('anio', gasto.anio)
-    gasto.mes= data.get('mes', gasto.mes)
-
-    db.session.commit()
-    return jsonify({'message': 'Gasto común actualizado', 'gasto': gasto.to_dict()}), 200
-
-## CRUD PARA ELIMINAR EL GASTO
-
-@app.route('/api/gastos/<int:id>', methods=['DELETE'])
-@requiere_autenticacion
-def eliminar_gasto(id):
-    gasto= GastoComun.query.get(id)
-    if not gasto:
-        return jsonify({'error': 'Gasto común no encontrado'}), 404
-    
-    db.session.delete(gasto)
-    db.session.commit()
-    return jsonify({'message': 'Gasto común eliminado exitosamente'}), 200
-
-## FOR POR CADA DEPARTAMENTO
-
-
+    return generar_gasto_comun(anio, mes)
 
 ## PERMITE EJECUTAR LA API
 
