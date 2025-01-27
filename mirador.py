@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import validates
 from functools import wraps
 
 app = Flask(__name__)
@@ -41,7 +42,7 @@ class Owner(db.Model):
     o_apellido= db.Column(db.String(300), nullable=False)
     iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
 
-    # RELACIONA CON EL DEPARTAMENTO
+    # RELACIONA CON LA TABLA DEPARTAMENTO
     depto= db.relationship('Depto', backref='owners', lazy=True)
 
 class Tenant(db.Model):
@@ -51,7 +52,7 @@ class Tenant(db.Model):
     iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
     
 
-    # RELACIONA CON EL DEPARTAMENTO
+    # RELACIONA CON LA TABLA DEPARTAMENTO
     depto= db.relationship('Depto', backref='tenants', lazy=True)
 
 class Staff(db.Model):
@@ -59,6 +60,28 @@ class Staff(db.Model):
     s_nombre= db.Column(db.String(300), nullable=False)
     s_apellido= db.Column(db.String(300), nullable=False)
     funcion= db.Column(db.String(300), nullable=False)
+
+class Gastos_Comunes(db.Model):
+    idgc= db.Column(db.Integer, primary_key=True)
+    iddepto= db.Column(db.Integer, db.ForeignKey('depto.iddepto'), nullable=False)
+    ano= db.Column(db.Integer, nullable=False)
+    mes= db.Column(db.Integer, nullable=False)
+    fechap= db.Column(db.Integer, nullable=False)
+    valor= db.Column(db.Integer, nullable=False)
+    pagado= db.Column(db.String(2), nullable=False)
+
+    # RELACIONA CON LA TABLA DEPARTAMENTO
+    depto= db.relationship('Depto', backref='gcomunes', lazy=True)
+
+    # VALIDA QUE EN LA COLUMNA PAGADO SOLAMENTE ADMITA SI O NO
+    @validates('pagado')
+    def validate_pagado(self, key, value):
+        if not isinstance(value, str):
+            raise ValueError("El campo 'pagado' debe ser un string.")
+        value = value.strip().upper()
+        if value not in ['SI', 'NO']:
+            raise ValueError("El campo 'pagado' solo puede tener los valores 'SI' o 'NO'.")
+        return value
 
 with app.app_context():
     db.create_all()
@@ -330,6 +353,92 @@ def eliminar_staff(id):
     db.session.delete(staff)
     db.session.commit()
     return jsonify({'mensaje': 'ERAI'}),401
+
+#####################################################################################
+
+## CREA LA CLASE DE GASTO COMUN
+
+class GastoComun(db.Model):
+    gid= db.Column(db.Integer, primary_key=True)
+    anio= db.Column(db.Integer, nullable=False)
+    mes= db.Column(db.Integer, nullable=False)
+
+    @validates('anio')
+    def validate_anio(self, key, value):
+        # VERIFICA QUE EL ANO TENGA EXACTAMENTE 4 DIGITOS 
+        if len(str(value)) != 4:
+            raise ValueError("El año debe tener exactamente 4 dígitos")
+        return value
+    
+    @validates('mes')
+    def validate_mes(self, key, value):
+        # VERIFICA QUE EL MES TENGA ENTRE 1 Y 2 DIGITOS Y ESTE EN RANGO ENTRE 1 Y 12
+        if not (1 <= value <=12):
+            raise ValueError("El mes debe estar entre 1 y 12")
+        return value
+
+## CRUD PARA CREAR LOS GASTOS
+
+@app.route('/api/gastos', methods=['POST'])
+@requiere_autenticacion
+def crear_gasto():
+    data= request.json
+    anio= data.get('anio')
+    mes= data.get('mes')
+
+    # VERIFICA SI YA HAY UN GASTO COMUN PARA ESAS FECHAS
+    gasto_existente= GastoComun.query.filter_by(anio=anio, mes=mes).first()
+    if gasto_existente:
+        return jsonify({'error': 'Ya existe un gasto común para ese año y mes'}), 400
+    
+    nuevo_gasto= GastoComun(anio=anio, mes=mes)
+    db.session.add(nuevo_gasto)
+    db.session.commit()
+
+    return jsonify({'message': 'Gasto común creado exitosamente', 'gasto': nuevo_gasto.to_dict()}), 201
+
+## CRUD PARA OBTENER LOS GASTOS
+
+@app.route('/api/gastos', methods=['GET'])
+@requiere_autenticacion
+def obtener_gasto():
+    gastos= GastoComun.query.all()
+    return jsonify([gasto.to_dict() for gasto in gastos]), 200
+
+## CURD PARA OBTENER LOS GASTOS POR ID
+
+@app.route('/api/gastos/<int:id>', methods=['GET'])
+@requiere_autenticacion
+def obtener_gasto(id):
+    gasto= GastoComun.query.get(id)
+    if not gasto:
+        return jsonify({'error': 'Gasto común no encontrado'}), 404
+    return jsonify(gasto.to_dict()), 200
+
+@app.route('/api/gastos/<int:id>', methods=['PUT'])
+@requiere_autenticacion
+def actualizar_gasto(id):
+    gasto= GastoComun.query.get(id)
+    if not gasto:
+        return jsonify({'error': 'Gasto común no encontrado'}), 404
+    
+    data= request.json
+    gasto.anio= data.get('anio', gasto.anio)
+    gasto.mes= data.get('mes', gasto.mes)
+
+    db.session.commit()
+    return jsonify({'message': 'Gasto común actualizado', 'gasto': gasto.to_dict()}), 200
+
+@app.route('/api/gastos/<int:id>', methods=['DELETE'])
+@requiere_autenticacion
+def eliminar_gasto(id):
+    gasto= GastoComun.query.get(id)
+    if not gasto:
+        return jsonify({'error': 'Gasto común no encontrado'}), 404
+    
+    db.session.delete(gasto)
+    db.session.commit()
+    return jsonify({'message': 'Gasto común eliminado exitosamente'}), 200
 
 ## PERMITE EJECUTAR LA API
 
