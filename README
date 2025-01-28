@@ -39,3 +39,27 @@ api/staff [POST, GET, PUT, DELETE]
     "s_apellido":"",
     "funcion":""
 }
+
+PARA GENERAR EL GASTO
+
+api/generar [POST]
+
+{
+    "anio": ,
+    "mes": 
+}
+
+PARA PAGAR LOS GASTOS
+
+api/pagar [POST]
+
+{
+    "iddepto": ,
+    "anio": ,
+    "mes": ,
+    "valor": 
+}
+
+PARA INFORME MOROSO
+
+api/informe [GET]

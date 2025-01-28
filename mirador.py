@@ -407,6 +407,75 @@ def generar():
 
     return generar_gasto_comun(anio, mes)
 
+####################################################################################################
+
+## FUNCION PARA PAGAR LOS GASTOS COMUNES
+
+@app.route('/api/pagar', methods=['POST'])
+@requiere_autenticacion
+def pagar():
+    datos= request.get_json()
+
+    iddepto= datos.get('iddepto')
+    anio= datos.get('anio')
+    mes= datos.get('mes')
+    valor= datos.get('valor')
+
+    # VERIFICA QUE TODOS LOS DATOS NO ESTEN EN BLANCO 
+    if not all([iddepto, anio, mes, valor]):
+        return jsonify({"mensaje": "Todos los campos (IdDepto, Anio, Mes, Valor) son requeridos."}), 400
+    
+    # BUSCA EL GASTO COMUN 
+    gasto= Gastos_Comunes.query.filter_by(iddepto= iddepto, anio= anio, mes= mes).first()
+
+    if not gasto:
+        return jsonify({"mensaje": "No se encontró el gasto común especificado."}), 404
+    
+    if gasto.pagado == 'SI':
+        return jsonify({"mensaje": "El gasto común ya fue pagado."}), 400
+    
+    # VALIDA QUE EL VALOR PROPORCIONADO COINCIDA
+    if gasto.valor != valor:
+        return jsonify({"mensaje": "El valor proporcionado no coincide con el monto del gasto común."}), 400
+    
+    # MARCA EL PAGADO COMO SI
+    gasto.pagado = 'SI'
+    db.session.commit()
+
+    return jsonify({"mensaje": "El gasto común ha sido pagado correctamente."}), 200
+
+#######################################################################################################################################
+
+## FUNCION PARA GENERAR EL INFORME DE LOS MOROSOS
+
+@app.route('/api/informe', methods=['GET'])
+@requiere_autenticacion
+def informe():
+    morosos= (
+        db.session.query(
+            Depto.iddepto,
+            Depto.pisos,
+            Tenant.t_nombre.label("nombre_residente"),
+            Gastos_Comunes.pagado.label("pagado")
+        )
+        .join(Gastos_Comunes, Depto.iddepto == Gastos_Comunes.iddepto)
+        .join(Tenant, Depto.iddepto == Tenant.iddepto)
+        .filter(Gastos_Comunes.pagado == 'NO')
+        .all()
+    )
+
+    resultado= [
+        {
+            "iddepto": m.iddepto,
+            "piso": m.pisos,
+            "Nombre Residente": m.nombre_residente,
+            "pagado": m.pagado,
+            "moroso": "SI" if m.pagado == "NO" else "NO"
+        }
+        for m in morosos
+    ]
+    return jsonify(resultado), 200
+
 ## PERMITE EJECUTAR LA API
 
 if __name__=='__main__':
